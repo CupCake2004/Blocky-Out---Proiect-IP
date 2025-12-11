@@ -2,21 +2,28 @@ package com.example.proiectip.view;
 
 import com.example.proiectip.model.GamePiece;
 import com.example.proiectip.model.LevelFactory;
+import javafx.animation.Animation;
 import javafx.animation.FadeTransition;
+import javafx.animation.KeyFrame;
 import javafx.animation.ParallelTransition;
+import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -36,11 +43,17 @@ public class GameScreen {
 
     private Map<GamePiece, Group> pieceVisuals = new HashMap<>();
 
+    // Variabile Drag
     private double startMouseX, startMouseY;
     private double startPieceX, startPieceY;
     private Group selectedVisual = null;
     private GamePiece selectedPiece = null;
     private boolean isDragging = false;
+
+    // --- CRONOMETRU ---
+    private Label timerLabel;
+    private Timeline timeline;
+    private int timeSeconds = 60; // 60 de secunde per nivel
 
     public GameScreen(Stage stage, int level) {
         this.stage = stage;
@@ -54,8 +67,20 @@ public class GameScreen {
         root.setAlignment(Pos.CENTER);
         root.setStyle("-fx-background-color: #4FB3E8;");
 
+        // Header cu Nivel și Cronometru
+        HBox header = new HBox(50);
+        header.setAlignment(Pos.CENTER);
+
         Label title = new Label("Level " + currentLevel);
         title.setStyle("-fx-font-size: 30px; -fx-text-fill: white; -fx-font-weight: bold;");
+
+        // Configurare Cronometru Vizual
+        timerLabel = new Label("Time: " + timeSeconds);
+        timerLabel.setFont(Font.font("Monospaced", FontWeight.BOLD, 30));
+        timerLabel.setTextFill(Color.YELLOW);
+        timerLabel.setStyle("-fx-background-color: #2c3e50; -fx-padding: 5 15; -fx-background-radius: 10;");
+
+        header.getChildren().addAll(title, timerLabel);
 
         int cols = terrainMap[0].length;
         int rows = terrainMap.length;
@@ -68,13 +93,56 @@ public class GameScreen {
 
         drawTerrain();
         spawnPieces();
+        startTimer(); // Pornim timpul!
 
         Button btnBack = new Button("Meniu");
-        btnBack.setOnAction(e -> new LevelSelect(stage).show());
+        btnBack.setOnAction(e -> {
+            stopTimer(); // Oprim timpul dacă ieșim
+            new LevelSelect(stage).show();
+        });
 
-        root.getChildren().addAll(title, gamePane, btnBack);
+        root.getChildren().addAll(header, gamePane, btnBack);
         stage.setScene(new Scene(root, 900, 750));
     }
+
+    // --- LOGICA TIMER ---
+    private void startTimer() {
+        timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
+            timeSeconds--;
+            timerLabel.setText("Time: " + timeSeconds);
+
+            // Schimbăm culoarea în roșu dacă mai sunt 10 secunde
+            if (timeSeconds <= 10) {
+                timerLabel.setTextFill(Color.RED);
+            }
+
+            if (timeSeconds <= 0) {
+                stopTimer();
+                handleGameOver();
+            }
+        }));
+        timeline.setCycleCount(Animation.INDEFINITE);
+        timeline.play();
+    }
+
+    private void stopTimer() {
+        if (timeline != null) {
+            timeline.stop();
+        }
+    }
+
+    private void handleGameOver() {
+        // Afișăm un mesaj și ne întoarcem la meniu
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("GAME OVER");
+        alert.setHeaderText("Timpul a expirat!");
+        alert.setContentText("Nu ai reușit să termini nivelul la timp.");
+        alert.showAndWait(); // Așteaptă să dai OK
+
+        new LevelSelect(stage).show();
+    }
+
+    // --- RESTUL LOGICII DE JOC (Identic cu înainte) ---
 
     private void drawTerrain() {
         for (int r = 0; r < terrainMap.length; r++) {
@@ -103,9 +171,9 @@ public class GameScreen {
                     drawBlade(x, y, Color.LIMEGREEN);
                 } else if (type == 'O') {
                     drawBlade(x, y, Color.ORANGE);
-                } else if (type == 'C') { // --- NOU: CYAN ---
+                } else if (type == 'C') {
                     drawBlade(x, y, Color.CYAN);
-                } else if (type == 'U') { // --- NOU: PURPLE ---
+                } else if (type == 'U') {
                     drawBlade(x, y, Color.PURPLE);
                 }
             }
@@ -260,11 +328,8 @@ public class GameScreen {
         if (color.equals(Color.MAGENTA) && blade == 'P') return true;
         if (color.equals(Color.LIMEGREEN) && blade == 'G') return true;
         if (color.equals(Color.ORANGE) && blade == 'O') return true;
-
-        // --- CULORI NOI ---
         if (color.equals(Color.CYAN) && blade == 'C') return true;
         if (color.equals(Color.PURPLE) && blade == 'U') return true;
-
         return false;
     }
 
@@ -359,6 +424,8 @@ public class GameScreen {
 
     private void checkWin() {
         if (pieces.isEmpty()) {
+            stopTimer(); // OPRIM TIMPUL DACĂ CÂȘTIGI
+
             Button nextLevel = new Button("NEXT LEVEL >>");
             nextLevel.setStyle("-fx-font-size: 24px; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 10 30;");
             nextLevel.setLayoutX(gamePane.getPrefWidth()/2 - 100);
