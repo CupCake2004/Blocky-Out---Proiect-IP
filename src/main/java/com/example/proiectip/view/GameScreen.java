@@ -36,7 +36,6 @@ public class GameScreen {
 
     private Map<GamePiece, Group> pieceVisuals = new HashMap<>();
 
-    // Variabile Drag
     private double startMouseX, startMouseY;
     private double startPieceX, startPieceY;
     private Group selectedVisual = null;
@@ -98,6 +97,16 @@ public class GameScreen {
                     drawBlade(x, y, Color.DODGERBLUE);
                 } else if (type == 'R') {
                     drawBlade(x, y, Color.GOLD);
+                } else if (type == 'P') {
+                    drawBlade(x, y, Color.MAGENTA);
+                } else if (type == 'G') {
+                    drawBlade(x, y, Color.LIMEGREEN);
+                } else if (type == 'O') {
+                    drawBlade(x, y, Color.ORANGE);
+                } else if (type == 'C') { // --- NOU: CYAN ---
+                    drawBlade(x, y, Color.CYAN);
+                } else if (type == 'U') { // --- NOU: PURPLE ---
+                    drawBlade(x, y, Color.PURPLE);
                 }
             }
         }
@@ -138,7 +147,6 @@ public class GameScreen {
 
     private void addMouseLogic(Group visual, GamePiece piece) {
         visual.setOnMousePressed(e -> {
-            // Capturăm offset-ul exact pentru a evita săriturile
             startMouseX = e.getSceneX();
             startMouseY = e.getSceneY();
             startPieceX = visual.getLayoutX();
@@ -147,7 +155,7 @@ public class GameScreen {
             selectedVisual = visual;
             selectedPiece = piece;
             isDragging = true;
-            visual.toFront(); // Aducem piesa în față ca să nu fie acoperită de altele
+            visual.toFront();
         });
 
         visual.setOnMouseDragged(e -> {
@@ -159,17 +167,13 @@ public class GameScreen {
             double newX = startPieceX + dx;
             double newY = startPieceY + dy;
 
-            // 1. Mutare pe X (dacă e liber)
             if (canMoveTo(visual, piece, newX, startPieceY)) {
                 visual.setLayoutX(newX);
             }
-            // 2. Mutare pe Y (dacă e liber)
-            // Folosim noua poziție X (vizuală) dacă s-a mutat, altfel vechiul X
             if (canMoveTo(visual, piece, visual.getLayoutX(), newY)) {
                 visual.setLayoutY(newY);
             }
 
-            // 3. Verificăm distrugerea
             if (checkDestroy(visual, piece)) {
                 explodePiece(piece, visual);
                 isDragging = false;
@@ -188,7 +192,6 @@ public class GameScreen {
     }
 
     private boolean canMoveTo(Group visual, GamePiece piece, double proposedX, double proposedY) {
-        // AM MICȘORAT MARJA: De la 5.0 la 1.0 pentru a permite glisarea fină pe lângă pereți
         double margin = 1.0;
         for (GamePiece.Point p : piece.structure) {
             double minX = proposedX + (p.c * TILE_SIZE) + margin;
@@ -196,7 +199,6 @@ public class GameScreen {
             double minY = proposedY + (p.r * TILE_SIZE) + margin;
             double maxY = proposedY + ((p.r + 1) * TILE_SIZE) - margin;
 
-            // Verificăm colțurile blocului
             if (isBlocked(minX, minY, piece) || isBlocked(maxX, minY, piece) ||
                     isBlocked(minX, maxY, piece) || isBlocked(maxX, maxY, piece)) {
                 return false;
@@ -209,28 +211,22 @@ public class GameScreen {
         int c = (int) (x / TILE_SIZE);
         int r = (int) (y / TILE_SIZE);
 
-        // 1. Verificare Limite și Pereți Harta
         if (r < 0 || r >= terrainMap.length || c < 0 || c >= terrainMap[0].length) return true;
         char cell = terrainMap[r][c];
 
         if (cell == 'W') return true;
 
-        if (cell == 'L' || cell == 'R') {
+        if (cell == 'L' || cell == 'R' || cell == 'P' || cell == 'G' || cell == 'O' || cell == 'C' || cell == 'U') {
             if (!canDestroy(currentPiece.color, cell)) return true;
-            // Dacă putem distruge, e liber (return false)
         }
 
-        // 2. VERIFICARE COLIZIUNE CU ALTE PIESE
-        // Atenție: Verificăm gridul LOGIC al celorlalte piese (unde sunt "snapped")
         for (GamePiece other : pieces) {
             if (other == currentPiece) continue;
-
             for (GamePiece.Point p : other.structure) {
                 int otherBlockR = other.row + p.r;
                 int otherBlockC = other.col + p.c;
-
                 if (r == otherBlockR && c == otherBlockC) {
-                    return true; // E ocupat de altcineva
+                    return true;
                 }
             }
         }
@@ -250,7 +246,7 @@ public class GameScreen {
 
             if (r >= 0 && r < terrainMap.length && c >= 0 && c < terrainMap[0].length) {
                 char cell = terrainMap[r][c];
-                if ((cell == 'L' || cell == 'R') && canDestroy(piece.color, cell)) {
+                if ((cell == 'L' || cell == 'R' || cell == 'P' || cell == 'G' || cell == 'O' || cell == 'C' || cell == 'U') && canDestroy(piece.color, cell)) {
                     return true;
                 }
             }
@@ -261,35 +257,39 @@ public class GameScreen {
     private boolean canDestroy(Color color, char blade) {
         if (color.equals(Color.GOLD) && blade == 'R') return true;
         if (color.equals(Color.DODGERBLUE) && blade == 'L') return true;
+        if (color.equals(Color.MAGENTA) && blade == 'P') return true;
+        if (color.equals(Color.LIMEGREEN) && blade == 'G') return true;
+        if (color.equals(Color.ORANGE) && blade == 'O') return true;
+
+        // --- CULORI NOI ---
+        if (color.equals(Color.CYAN) && blade == 'C') return true;
+        if (color.equals(Color.PURPLE) && blade == 'U') return true;
+
         return false;
     }
 
-    // --- FIX MAJOR AICI ---
     private void snapToGrid(Group visual, GamePiece piece) {
         int targetCol = (int) Math.round(visual.getLayoutX() / TILE_SIZE);
         int targetRow = (int) Math.round(visual.getLayoutY() / TILE_SIZE);
 
-        // Verificăm dacă poziția finală este validă
         boolean isValid = true;
 
         for (GamePiece.Point p : piece.structure) {
             int absCol = targetCol + p.c;
             int absRow = targetRow + p.r;
 
-            // 1. Verificăm Harta
             if (absRow < 0 || absRow >= terrainMap.length || absCol < 0 || absCol >= terrainMap[0].length) {
                 isValid = false; break;
             }
             char cell = terrainMap[absRow][absCol];
             if (cell == 'W') isValid = false;
-            if ((cell == 'L' || cell == 'R') && !canDestroy(piece.color, cell)) isValid = false;
+            if ((cell == 'L' || cell == 'R' || cell == 'P' || cell == 'G' || cell == 'O' || cell == 'C' || cell == 'U') && !canDestroy(piece.color, cell)) isValid = false;
 
-            // 2. VERIFICĂM DACĂ CĂDEM PESTE O ALTĂ PIESĂ (Aici era bug-ul!)
             for (GamePiece other : pieces) {
                 if (other == piece) continue;
                 for (GamePiece.Point op : other.structure) {
                     if ((other.row + op.r) == absRow && (other.col + op.c) == absCol) {
-                        isValid = false; // Locul e deja luat!
+                        isValid = false;
                         break;
                     }
                 }
@@ -298,12 +298,10 @@ public class GameScreen {
         }
 
         if (isValid) {
-            // Loc liber -> Validăm mutarea
             piece.col = targetCol;
             piece.row = targetRow;
             animateMove(visual, targetCol * TILE_SIZE, targetRow * TILE_SIZE);
         } else {
-            // Invalid -> Respingem mutarea (Bounce Back la vechea poziție)
             animateMove(visual, piece.col * TILE_SIZE, piece.row * TILE_SIZE);
         }
     }
@@ -312,7 +310,6 @@ public class GameScreen {
         TranslateTransition tt = new TranslateTransition(Duration.millis(200), visual);
         tt.setToX(0); tt.setToY(0);
 
-        // Resetăm translate-ul manual pentru a lucra cu layoutX/Y
         double startX = visual.getLayoutX();
         double startY = visual.getLayoutY();
 
@@ -327,7 +324,7 @@ public class GameScreen {
     private void explodePiece(GamePiece piece, Group visual) {
         gamePane.getChildren().remove(visual);
         pieces.remove(piece);
-        pieceVisuals.remove(piece); // Curățăm referința
+        pieceVisuals.remove(piece);
 
         Random rand = new Random();
         double currentX = visual.getLayoutX();
@@ -372,7 +369,14 @@ public class GameScreen {
             ft.setAutoReverse(true); ft.setCycleCount(10);
             ft.play();
 
-            nextLevel.setOnAction(e -> new LevelSelect(stage).show());
+            nextLevel.setOnAction(e -> {
+                int nextLvl = currentLevel + 1;
+                if (LevelFactory.getLevelMap(nextLvl).length > 0) {
+                    new GameScreen(stage, nextLvl).show();
+                } else {
+                    new LevelSelect(stage).show();
+                }
+            });
             gamePane.getChildren().add(nextLevel);
         }
     }
