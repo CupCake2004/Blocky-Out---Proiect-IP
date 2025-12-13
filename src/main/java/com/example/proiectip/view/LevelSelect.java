@@ -1,6 +1,6 @@
 package com.example.proiectip.view;
 
-import com.example.proiectip.controller.GameManager; // Asigură-te că ai asta sau șterge dacă nu folosești GameManager încă
+import com.example.proiectip.controller.GameManager;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -22,7 +22,7 @@ public class LevelSelect {
     public void show() {
         VBox mainLayout = new VBox(40);
         mainLayout.setAlignment(Pos.CENTER);
-        // Același gradient ca la meniu pentru consistență
+        // Design Modern - Gradient
         mainLayout.setStyle("-fx-background-color: linear-gradient(to bottom right, #2c3e50, #4ca1af);");
 
         Label label = new Label("SELECTEAZĂ NIVELUL");
@@ -34,33 +34,49 @@ public class LevelSelect {
         grid.setHgap(30);
         grid.setVgap(30);
 
-        // --- DOAR 5 NIVELE ---
-        int count = 1;
-        for (int i = 0; i < 5; i++) { // Facem doar un rând de 5
-            int levelNum = count;
+        // --- INTEROGARE SINGLETON ---
+        // Întrebăm Managerul care este maximul deblocat
+        int maxUnlocked = GameManager.getInstance().getMaxUnlockedLevel();
+
+        // Facem doar 5 nivele
+        for (int i = 0; i < 5; i++) {
+            int levelNum = i + 1;
 
             Button btnLevel = new Button(String.valueOf(levelNum));
             btnLevel.setPrefSize(80, 80);
 
-            // Stil butoane pătrate moderne
-            String normalStyle =
-                    "-fx-background-color: #3498db; " + // Albastru
-                            "-fx-text-fill: white; " +
-                            "-fx-font-size: 24px; " +
-                            "-fx-font-weight: bold; " +
-                            "-fx-background-radius: 15; " +
-                            "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 10, 0, 0, 5);";
+            // Verificăm dacă nivelul este permis
+            if (levelNum <= maxUnlocked) {
+                // NIVEL DEBLOCAT (Albastru - Activ)
+                btnLevel.setStyle(
+                        "-fx-background-color: #3498db; " +
+                                "-fx-text-fill: white; " +
+                                "-fx-font-size: 24px; " +
+                                "-fx-font-weight: bold; " +
+                                "-fx-background-radius: 15; " +
+                                "-fx-cursor: hand;"
+                );
 
-            btnLevel.setStyle(normalStyle);
+                // Adăugăm efect la mouse over
+                btnLevel.setOnMouseEntered(e -> btnLevel.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold; -fx-background-radius: 15;"));
+                btnLevel.setOnMouseExited(e -> btnLevel.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold; -fx-background-radius: 15;"));
 
-            btnLevel.setOnAction(e -> {
-                // Pornim jocul cu nivelul selectat
-                GameScreen game = new GameScreen(stage, levelNum);
-                game.show();
-            });
+                btnLevel.setOnAction(e -> {
+                    new GameScreen(stage, levelNum).show();
+                });
+            } else {
+                // NIVEL BLOCAT (Gri - Dezactivat)
+                btnLevel.setStyle(
+                        "-fx-background-color: #7f8c8d; " +
+                                "-fx-text-fill: #bdc3c7; " +
+                                "-fx-font-size: 24px; " +
+                                "-fx-font-weight: bold; " +
+                                "-fx-background-radius: 15;"
+                );
+                btnLevel.setDisable(true); // Nu poți da click
+            }
 
-            grid.add(btnLevel, i, 0); // Adăugăm pe coloana i, rândul 0
-            count++;
+            grid.add(btnLevel, i, 0);
         }
 
         Button btnBack = new Button("Înapoi");
